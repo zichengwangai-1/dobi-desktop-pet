@@ -21,7 +21,10 @@ public struct PetLife: Codable {
 public enum PetAction: String, CaseIterable {
     case puppyWalk = "puppy_walk", puppySpin = "puppy_spin", puppySit = "puppy_sit"
     case adultWalk = "adult_walk", adultBark = "adult_bark"
-    case puppyEat = "puppy_eat"
+    case puppyEat = "puppy_eat", adultEat = "adult_eat"
+    public static func eating(for stage: PetStage) -> PetAction {
+        stage == .puppy ? .puppyEat : .adultEat
+    }
     public static func interaction(for stage: PetStage) -> PetAction {
         stage == .puppy ? .puppySit : .adultBark
     }

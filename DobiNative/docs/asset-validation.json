@@ -11,6 +11,17 @@
     "passed": true
   },
   {
+    "file": "adult_eat.mov",
+    "frames": 69,
+    "unique_frames": 69,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.7612688614540466,
+    "minimum_opaque_fraction": 0.2156275720164609,
+    "codec": "ProRes 4444",
+    "passed": true
+  },
+  {
     "file": "adult_walk.mov",
     "frames": 152,
     "unique_frames": 152,

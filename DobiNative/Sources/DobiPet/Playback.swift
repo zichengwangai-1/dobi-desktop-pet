@@ -36,7 +36,7 @@ final class Playback {
             guard let self, let item = note.object as? AVPlayerItem,
                   self.actions.removeValue(forKey: ObjectIdentifier(item)) != nil else { return }
             if self.feeding.isEating {
-                if self.feeding.completeCycle() { self.enqueue(.puppyEat) }
+                if self.feeding.completeCycle() { self.enqueue(PetAction.eating(for: self.stage)) }
                 else { self.startAmbient(); print("event=feeding_finished") }
                 return
             }
@@ -95,10 +95,12 @@ final class Playback {
             print("event=feeding_extended")
             return
         }
+        // Keep the age consistent for this meal, including extended cycles.
+        stage = store.stage()
         player.pause(); player.removeAllItems(); actions.removeAll()
-        for _ in 0..<3 { enqueue(.puppyEat) }
+        for _ in 0..<3 { enqueue(PetAction.eating(for: stage)) }
         player.play()
-        print("event=feeding_started")
+        print("event=feeding_started stage=\(stage.rawValue)")
     }
     private func render() {
         guard let view, let item = player.currentItem,

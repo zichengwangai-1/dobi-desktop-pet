@@ -28,5 +28,5 @@ for path in sorted((root/'Resources/Videos').glob('*.mov')):
     results.append(result)
     print(json.dumps(result), flush=True)
 assert {item['file'] for item in results} == {'puppy_walk.mov', 'puppy_spin.mov', 'puppy_sit.mov',
-                                           'adult_walk.mov', 'adult_bark.mov', 'puppy_eat.mov'}, 'Six clips are required'
+                                           'adult_walk.mov', 'adult_bark.mov', 'puppy_eat.mov', 'adult_eat.mov'}, 'Seven clips are required'
 (root/'docs/asset-validation.json').write_text(json.dumps(results, indent=2)+'\n')

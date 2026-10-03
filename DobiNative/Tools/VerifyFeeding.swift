@@ -36,6 +36,12 @@ struct VerifyFeeding {
         setbuf(stdout, nil)
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
+        precondition(Bundle.main.bundleIdentifier == "com.dobipet.feeding-validation", "Run in the separate validation app bundle")
+        let adult = CommandLine.arguments.contains("--adult")
+        // This executable has a separate validation bundle ID and preferences.
+        let birthday = adult ? Date(timeIntervalSinceNow: -259_201) : Date()
+        UserDefaults.standard.set(try JSONEncoder().encode(PetLife(birthday: birthday)), forKey: "life")
+        let cycleDuration: TimeInterval = adult ? 2.3 : 1.9
         let manager = FileManager.default
         let fixture = manager.temporaryDirectory.appendingPathComponent("dobi-drop-\(UUID().uuidString)")
         try manager.createDirectory(at: fixture, withIntermediateDirectories: true)
@@ -90,11 +96,11 @@ struct VerifyFeeding {
             precondition(alpha.min() == 0 && alpha.max() == 255, "Actual eating layer must preserve alpha")
             print("PASS: eating frame rendered with alpha 0..255")
         }
-        after(2.4) {
+        after(cycleDuration + 0.5) {
             precondition(playback.isEating, "Second drop must extend eating past the first cycle")
             precondition(playback.renderedFrames > 45, "Eating must remain animated")
         }
-        after(4.7) {
+        after(cycleDuration * 2 + 1) {
             precondition(!playback.isEating, "Ambient playback must resume after food stops")
             precondition(playback.renderedFrames > 100)
             for result in results {
@@ -103,7 +109,7 @@ struct VerifyFeeding {
             playback.stop()
             for drop in [dropA, dropB, invalid] { drop.draggingPasteboard.releaseGlobally() }
             try! manager.removeItem(at: fixture)
-            print("PASS: native file drops trash both fixtures, extend eating without restarting, ignore clicks while eating, and resume ambient playback")
+            print("PASS: \(adult ? "adult" : "puppy") native file drops trash both fixtures, extend eating without restarting, ignore clicks while eating, and resume ambient playback")
             exit(0)
         }
         app.run()

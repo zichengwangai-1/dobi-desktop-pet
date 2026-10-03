@@ -11,6 +11,7 @@ CLIPS = {
     'adult_walk': '成年期：左右散步.mov',
     'adult_bark': '成年期：犬吠.mov',
     'puppy_eat': '幼年期：吃饭.mp4',
+    'adult_eat': '成年期：吃饭.mov',
 }
 parser = argparse.ArgumentParser()
 parser.add_argument('--only', nargs='+', choices=list(CLIPS))
@@ -26,10 +27,11 @@ subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', '/tmp/dobi-swift-
 for name, source in CLIPS.items():
     if name not in selected: continue
     # Loop only the head-down eating section, not the stand-up intro/outro.
-    trim = ['-ss', '0.9', '-t', '1.9'] if name == 'puppy_eat' else []
+    eating_sections = {'puppy_eat': ('0.9', '1.9'), 'adult_eat': ('1.1', '2.3')}
+    trim = ['-ss', eating_sections[name][0], '-t', eating_sections[name][1]] if name in eating_sections else []
     decode = subprocess.Popen([ffmpeg, '-v','error',*trim,'-i',str(SOURCE/source),'-vf','fps=30,scale=540:540',
                                '-f','rawvideo','-pix_fmt','rgb24','-an','pipe:1'], stdout=subprocess.PIPE)
-    segmentation_options = ['--preserve-color-details'] if name == 'puppy_eat' else []
+    segmentation_options = ['--preserve-color-details'] if name in eating_sections else []
     cutout = subprocess.Popen([str(tool), *segmentation_options], stdin=decode.stdout, stdout=subprocess.PIPE)
     decode.stdout.close()
     encode = subprocess.run([ffmpeg,'-v','error','-y','-f','rawvideo','-pix_fmt','rgba','-s','540x540',

@@ -2,6 +2,14 @@ import XCTest
 @testable import DobiCore
 
 final class FeedingSessionTests: XCTestCase {
+    func testFeedingUsesCurrentGrowthStageAndNeverFallsBackToPuppyAfterGrowth() {
+        var life = PetLife(birthday: Date(timeIntervalSince1970: 1000))
+        XCTAssertEqual(PetAction.eating(for: life.stage(at: Date(timeIntervalSince1970: 260199))).rawValue, "puppy_eat")
+        XCTAssertEqual(PetAction.eating(for: life.stage(at: Date(timeIntervalSince1970: 260200))).rawValue, "adult_eat")
+        let restored = try! JSONDecoder().decode(PetLife.self, from: JSONEncoder().encode(life))
+        var resumed = restored
+        XCTAssertEqual(PetAction.eating(for: resumed.stage(at: Date(timeIntervalSince1970: 1000))).rawValue, "adult_eat")
+    }
     func testContinuousDropsKeepEatingWithoutRestartingOrGrowingAnEndlessQueue() {
         var session = FeedingSession()
         XCTAssertTrue(session.receiveFood(), "First successful drop starts the eating clip")
