@@ -1,0 +1,57 @@
+[
+  {
+    "file": "adult_bark.mov",
+    "frames": 151,
+    "unique_frames": 151,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.6985322359396433,
+    "minimum_opaque_fraction": 0.24247942386831275,
+    "codec": "ProRes 4444",
+    "passed": true
+  },
+  {
+    "file": "adult_walk.mov",
+    "frames": 152,
+    "unique_frames": 152,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.6648113854595336,
+    "minimum_opaque_fraction": 0.19083676268861455,
+    "codec": "ProRes 4444",
+    "passed": true
+  },
+  {
+    "file": "puppy_sit.mov",
+    "frames": 152,
+    "unique_frames": 152,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.6990775034293553,
+    "minimum_opaque_fraction": 0.23505486968449932,
+    "codec": "ProRes 4444",
+    "passed": true
+  },
+  {
+    "file": "puppy_spin.mov",
+    "frames": 152,
+    "unique_frames": 152,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.6604012345679012,
+    "minimum_opaque_fraction": 0.17421124828532236,
+    "codec": "ProRes 4444",
+    "passed": true
+  },
+  {
+    "file": "puppy_walk.mov",
+    "frames": 151,
+    "unique_frames": 151,
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "minimum_transparent_fraction": 0.6553189300411523,
+    "minimum_opaque_fraction": 0.175380658436214,
+    "codec": "ProRes 4444",
+    "passed": true
+  }
+]

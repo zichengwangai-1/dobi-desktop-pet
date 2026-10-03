@@ -1,0 +1,21 @@
+# This repository tracks the native macOS product and its source assets.
+/*
+!/.gitignore
+!/README.md
+!/DobiNative/
+!/启动杜宾.command
+!/杜宾：小狗动作画面/
+
+# Keep only the five original clips needed to regenerate alpha videos.
+/杜宾：小狗动作画面/*
+!/杜宾：小狗动作画面/杜宾/
+
+# Build output, IDE state, and local filesystem metadata.
+**/.build/
+**/.swiftpm/
+**/.DS_Store
+**/*.xcuserstate
+**/core
+**/core.*
+**/__pycache__/
+**/*.pyc
