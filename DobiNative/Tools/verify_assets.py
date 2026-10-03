@@ -21,11 +21,12 @@ for path in sorted((root/'Resources/Videos').glob('*.mov')):
         assert 0.05 < opaque[-1] < 0.9, f'{path.name} frame {frames}: foreground lost'
         unique.add(hashlib.sha256(data).hexdigest())
         frames += 1
-    assert process.wait() == 0 and frames >= 150 and len(unique) > 100, f'{path.name}: not a moving clip'
+    assert process.wait() == 0 and frames >= 50 and len(unique) > 40, f'{path.name}: not a moving clip'
     result = dict(file=path.name, frames=frames, unique_frames=len(unique),
                   alpha_min=0, alpha_max=255, minimum_transparent_fraction=min(transparent),
                   minimum_opaque_fraction=min(opaque), codec='ProRes 4444', passed=True)
     results.append(result)
     print(json.dumps(result), flush=True)
-assert len(results) == 5, 'Five clips are required'
+assert {item['file'] for item in results} == {'puppy_walk.mov', 'puppy_spin.mov', 'puppy_sit.mov',
+                                           'adult_walk.mov', 'adult_bark.mov', 'puppy_eat.mov'}, 'Six clips are required'
 (root/'docs/asset-validation.json').write_text(json.dumps(results, indent=2)+'\n')

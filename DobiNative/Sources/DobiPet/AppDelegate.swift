@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var playback: Playback!
     private var statusItem: NSStatusItem!
     private var screenObserver: NSObjectProtocol?
+    private let feedingQueue = DispatchQueue(label: "com.dobipet.file-feeding", qos: .userInitiated)
+    private var fedFileCount = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let missing = PetAction.allCases.filter { !FileManager.default.fileExists(atPath: Assets.video($0).path) }
@@ -25,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         petView = PetView(frame: NSRect(x: 0, y: 0, width: size, height: size))
         panel.contentView = petView
         petView.onInteract = { [weak self] in self?.playback.interact() }
+        petView.onFilesDropped = { [weak self] files in self?.feedFiles(files) }
         petView.onDragEnd = { [weak self] in
             guard let self else { return }
             self.keepOnScreen(); self.store.savePosition(self.panel.frame.origin)
@@ -35,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "杜宾桌宠")
         statusItem.button?.target = self; statusItem.button?.action = #selector(openStatusMenu)
-        statusItem.button?.toolTip = "杜宾 · 点击小狗互动，右键关闭"
+        statusItem.button?.toolTip = "杜宾 · 拖文件喂食（移入废纸篓），点击互动，右键关闭"
         playback = Playback(view: petView, store: store)
         playback.onFailure = { [weak self] message in self?.showFailure(message) }
         panel.orderFrontRegardless()
@@ -47,6 +50,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func placePet() {
         if let origin = store.position() { panel.setFrameOrigin(origin); keepOnScreen() }
         else { centerPet() }
+    }
+    private func feedFiles(_ files: [URL]) {
+        feedingQueue.async { [weak self] in
+            let result = FileFeedingService().consume(files)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if !result.trashed.isEmpty {
+                    self.fedFileCount += result.trashed.count
+                    self.playback.feed()
+                    print("event=files_trashed count=\(result.trashed.count)")
+                }
+                if !result.failures.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = "有 \(result.failures.count) 个文件没能吃掉"
+                    alert.informativeText = result.failures.prefix(5).map {
+                        "\($0.file.lastPathComponent)：\($0.message)"
+                    }.joined(separator: "\n")
+                    alert.addButton(withTitle: "知道了")
+                    alert.runModal()
+                }
+            }
+        }
     }
     @objc private func centerPet() {
         guard let screen = NSScreen.main else { return }
@@ -73,6 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let stage = store.stage()
         menu.addItem(withTitle: stage == .puppy ? "杜宾 · 幼年期" : "杜宾 · 成年期", action: nil, keyEquivalent: "")
+        if fedFileCount > 0 {
+            menu.addItem(withTitle: "已吃掉 \(fedFileCount) 个文件 · 可在废纸篓找回", action: nil, keyEquivalent: "")
+        }
         if stage == .puppy {
             let hours = Int(ceil(store.life.remaining(at: Date()) / 3600))
             menu.addItem(withTitle: "再陪伴 \(hours) 小时，长大成为成年犬", action: nil, keyEquivalent: "")
@@ -80,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         let interact = menu.addItem(withTitle: stage == .puppy ? "坐下" : "犬吠", action: #selector(interact), keyEquivalent: "")
         interact.target = self
+        interact.isEnabled = !playback.isEating
         let sizes = NSMenu()
         for (title, value) in [("小 · 220", 220), ("中 · 300", 300), ("大 · 380", 380)] {
             let item = sizes.addItem(withTitle: title, action: #selector(resizePet(_:)), keyEquivalent: "")

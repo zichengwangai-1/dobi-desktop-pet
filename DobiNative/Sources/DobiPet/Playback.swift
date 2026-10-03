@@ -20,6 +20,8 @@ final class Playback {
     private var hasReportedFrame = false
     private var displayedItem: ObjectIdentifier?
     private var hasReportedFailure = false
+    private var feeding = FeedingSession()
+    var isEating: Bool { feeding.isEating }
     var onFailure: ((String) -> Void)?
 
     init(view: PetView, store: PetStore) {
@@ -33,6 +35,11 @@ final class Playback {
                                                              object: nil, queue: .main) { [weak self] note in
             guard let self, let item = note.object as? AVPlayerItem,
                   self.actions.removeValue(forKey: ObjectIdentifier(item)) != nil else { return }
+            if self.feeding.isEating {
+                if self.feeding.completeCycle() { self.enqueue(.puppyEat) }
+                else { self.startAmbient(); print("event=feeding_finished") }
+                return
+            }
             let newStage = self.store.stage()
             if newStage != self.stage {
                 self.stage = newStage; self.startAmbient()
@@ -71,6 +78,7 @@ final class Playback {
         enqueue(PetAction.ambient(for: stage, excluding: previous))
     }
     func interact() {
+        guard !isEating else { return }
         stage = store.stage()
         let action = PetAction.interaction(for: stage)
         player.pause(); player.removeAllItems(); actions.removeAll()
@@ -80,6 +88,17 @@ final class Playback {
         sound?.stop()
         if stage == .adult && store.soundEnabled { sound?.play() }
         print("event=interaction action=\(action.rawValue)")
+    }
+    func feed() {
+        sound?.stop()
+        guard feeding.receiveFood() else {
+            print("event=feeding_extended")
+            return
+        }
+        player.pause(); player.removeAllItems(); actions.removeAll()
+        for _ in 0..<3 { enqueue(.puppyEat) }
+        player.play()
+        print("event=feeding_started")
     }
     private func render() {
         guard let view, let item = player.currentItem,
@@ -120,7 +139,7 @@ final class Playback {
             print("event=clip action=\(actions[identity]?.rawValue ?? "unknown") renderedFrames=\(renderedFrames)")
         }
         // Pass clicks in the transparent margin through to the desktop.
-        if !view.pointerDown, let window = view.window {
+        if !view.pointerDown && !view.fileDragActive, let window = view.window {
             let point = view.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
             let w = CVPixelBufferGetWidth(buffer), h = CVPixelBufferGetHeight(buffer)
             let x = Int(point.x / view.bounds.width * CGFloat(w))
@@ -132,7 +151,8 @@ final class Playback {
                 overDog = address[y*CVPixelBufferGetBytesPerRow(buffer)+x*4+3] > 24
                 CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
             }
-            window.ignoresMouseEvents = !overDog
+            let overDropArea = view.bounds.contains(point) && PetView.externalFileDragInProgress
+            window.ignoresMouseEvents = !(overDog || overDropArea)
         }
     }
     func stop() {

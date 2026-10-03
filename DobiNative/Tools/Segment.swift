@@ -8,6 +8,7 @@ let width = 540, height = 540, frameBytes = width * height * 3
 let input = FileHandle.standardInput, output = FileHandle.standardOutput
 let colorSpace = CGColorSpaceCreateDeviceRGB()
 var frameNumber = 0
+let preserveColorDetails = CommandLine.arguments.contains("--preserve-color-details")
 while true {
     let data = input.readData(ofLength: frameBytes)
     if data.isEmpty { break }
@@ -40,7 +41,14 @@ while true {
         for y in 0..<height { for x in 0..<width {
             let p = y * width + x
             let v = max(0, min(1, values[y*stride+x]))
-            let alpha: UInt8 = v < 0.03 ? 0 : (v > 0.97 ? 255 : UInt8(v * 255))
+            var alpha: UInt8 = v < 0.03 ? 0 : (v > 0.97 ? 255 : UInt8(v * 255))
+            // Vision can miss parts of the food bowl. Retain non-black color
+            // details as well, while Vision protects the dog's dark fur.
+            if preserveColorDetails {
+                let brightness = Int(max(rgb[p*3], max(rgb[p*3+1], rgb[p*3+2])))
+                let colorAlpha = UInt8(max(0, min(255, (brightness - 8) * 255 / 20)))
+                alpha = max(alpha, colorAlpha)
+            }
             rgba[p*4+3] = alpha
             if alpha == 0 { rgba[p*4] = 0; rgba[p*4+1] = 0; rgba[p*4+2] = 0 }
         } }

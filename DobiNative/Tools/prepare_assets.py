@@ -1,5 +1,5 @@
 """Create real ProRes 4444 alpha videos from the user's black-backdrop clips."""
-import pathlib, subprocess, shutil, json, sys
+import argparse, pathlib, subprocess, shutil, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCE = ROOT.parent / '杜宾：小狗动作画面' / '杜宾'
@@ -10,7 +10,11 @@ CLIPS = {
     'puppy_sit': '幼年期：坐下.mov',
     'adult_walk': '成年期：左右散步.mov',
     'adult_bark': '成年期：犬吠.mov',
+    'puppy_eat': '幼年期：吃饭.mp4',
 }
+parser = argparse.ArgumentParser()
+parser.add_argument('--only', nargs='+', choices=list(CLIPS))
+selected = parser.parse_args().only or list(CLIPS)
 ffmpeg = shutil.which('ffmpeg')
 if not ffmpeg:
     sys.exit('ffmpeg is required only to prepare assets, not to run the app.')
@@ -20,9 +24,13 @@ OUTPUT.mkdir(parents=True, exist_ok=True)
 subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', '/tmp/dobi-swift-cache',
                 str(ROOT/'Tools/Segment.swift'), '-o', str(tool)], check=True)
 for name, source in CLIPS.items():
-    decode = subprocess.Popen([ffmpeg, '-v','error','-i',str(SOURCE/source),'-vf','scale=540:540',
+    if name not in selected: continue
+    # Loop only the head-down eating section, not the stand-up intro/outro.
+    trim = ['-ss', '0.9', '-t', '1.9'] if name == 'puppy_eat' else []
+    decode = subprocess.Popen([ffmpeg, '-v','error',*trim,'-i',str(SOURCE/source),'-vf','fps=30,scale=540:540',
                                '-f','rawvideo','-pix_fmt','rgb24','-an','pipe:1'], stdout=subprocess.PIPE)
-    cutout = subprocess.Popen([str(tool)], stdin=decode.stdout, stdout=subprocess.PIPE)
+    segmentation_options = ['--preserve-color-details'] if name == 'puppy_eat' else []
+    cutout = subprocess.Popen([str(tool), *segmentation_options], stdin=decode.stdout, stdout=subprocess.PIPE)
     decode.stdout.close()
     encode = subprocess.run([ffmpeg,'-v','error','-y','-f','rawvideo','-pix_fmt','rgba','-s','540x540',
                              '-r','30','-i','pipe:0','-an','-c:v','prores_ks','-profile:v','4',

@@ -6,7 +6,7 @@
 !/启动杜宾.command
 !/杜宾：小狗动作画面/
 
-# Keep only the five original clips needed to regenerate alpha videos.
+# Keep the original pet clips needed to regenerate alpha videos.
 /杜宾：小狗动作画面/*
 !/杜宾：小狗动作画面/杜宾/
 
