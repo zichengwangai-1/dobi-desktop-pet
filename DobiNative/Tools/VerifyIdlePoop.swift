@@ -26,13 +26,25 @@ struct VerifyIdlePoop {
         playback.onFailure = { fatalError($0) }
         playback.startAmbient()
         idle.start()
-        clock = 299; idle.tick()
-        precondition(!playback.isPooping, "No animation before five minutes")
-        _ = view.accessibilityPerformPress()
-        clock = 598.9; idle.tick()
-        precondition(!playback.isPooping, "A pet click resets the inactivity deadline")
-        clock = 599; idle.tick()
+        if CommandLine.arguments.contains("--manual") {
+            precondition(idle.canPoopManually)
+            let heldClick = NSEvent.mouseEvent(with: .leftMouseDown, location: NSPoint(x: 150, y: 150),
+                                              modifierFlags: [], timestamp: 0, windowNumber: panel.windowNumber,
+                                              context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            view.mouseDown(with: heldClick)
+            precondition(view.pointerDown, "Context-menu actions can run while the pet still holds the pointer")
+            precondition(idle.poopManually(), "Demo starts immediately without a five-minute wait")
+            view.mouseUp(with: heldClick)
+        } else {
+            clock = 299; idle.tick()
+            precondition(!playback.isPooping, "No animation before five minutes")
+            _ = view.accessibilityPerformPress()
+            clock = 598.9; idle.tick()
+            precondition(!playback.isPooping, "A pet click resets the inactivity deadline")
+            clock = 599; idle.tick()
+        }
         precondition(playback.isPooping && idle.session.phase == .animating)
+        precondition(!idle.canPoopManually && !idle.poopManually(), "A second demo cannot interrupt the animation")
         precondition(idle.desktop.panel == nil, "Poop appears after the animation")
         var timers: [Timer] = []
         func after(_ seconds: TimeInterval, _ block: @escaping () -> Void) {
@@ -61,6 +73,7 @@ struct VerifyIdlePoop {
         after(duration + 0.6) {
             precondition(!playback.isPooping && playback.isEating, "Queued food begins after pooping")
             precondition(idle.session.phase == .visible)
+            precondition(!idle.canPoopManually && !idle.poopManually(), "Demo cannot duplicate an uncleared poop")
             guard let poopPanel = idle.desktop.panel, let poopView = idle.desktop.view else {
                 fatalError("Poop never appeared")
             }

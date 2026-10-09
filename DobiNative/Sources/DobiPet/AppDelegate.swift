@@ -106,19 +106,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.autoenablesItems = false
         let stage = store.stage()
-        menu.addItem(withTitle: stage == .puppy ? "杜宾 · 幼年期" : "杜宾 · 成年期", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: stage == .puppy ? "杜宾 · 幼年期" : "杜宾 · 成年期", action: nil, keyEquivalent: "").isEnabled = false
         if fedFileCount > 0 {
-            menu.addItem(withTitle: "已吃掉 \(fedFileCount) 个文件 · 可在废纸篓找回", action: nil, keyEquivalent: "")
+            menu.addItem(withTitle: "已吃掉 \(fedFileCount) 个文件 · 可在废纸篓找回", action: nil, keyEquivalent: "").isEnabled = false
         }
         if stage == .puppy {
             let hours = Int(ceil(store.life.remaining(at: Date()) / 3600))
-            menu.addItem(withTitle: "再陪伴 \(hours) 小时，长大成为成年犬", action: nil, keyEquivalent: "")
+            menu.addItem(withTitle: "再陪伴 \(hours) 小时，长大成为成年犬", action: nil, keyEquivalent: "").isEnabled = false
         }
         menu.addItem(.separator())
         let interact = menu.addItem(withTitle: stage == .puppy ? "坐下" : "犬吠", action: #selector(interact), keyEquivalent: "")
         interact.target = self
         interact.isEnabled = !playback.isEating && !playback.isPooping
+        let poop = menu.addItem(withTitle: "拉便便", action: #selector(poopManually), keyEquivalent: "")
+        poop.target = self
+        poop.isEnabled = idlePoop?.canPoopManually == true
+        poop.toolTip = idlePoop?.session.phase == .visible ? "先点击桌面的便便清理，再演示拉便便" : "立即演示拉便便，无需等待 5 分钟"
         let sizes = NSMenu()
         for (title, value) in [("小 · 220", 220), ("中 · 300", 300), ("大 · 380", 380)] {
             let item = sizes.addItem(withTitle: title, action: #selector(resizePet(_:)), keyEquivalent: "")
@@ -137,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return menu
     }
     @objc private func interact() { idlePoop?.registerActivity(); playback.interact() }
+    @objc private func poopManually() { idlePoop?.poopManually() }
     @objc private func toggleSound() { store.soundEnabled.toggle() }
     @objc private func resizePet(_ sender: NSMenuItem) {
         let size = CGFloat(sender.tag)

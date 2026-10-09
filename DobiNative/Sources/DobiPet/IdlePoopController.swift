@@ -31,6 +31,16 @@ final class IdlePoopController {
         self.timer = timer
     }
     func registerActivity() { session.registerActivity(at: now()) }
+    var canPoopManually: Bool {
+        session.phase == .waiting && !playback.isEating && !playback.isPooping
+    }
+    @discardableResult
+    func poopManually() -> Bool {
+        // A context-menu action runs while PetView is still handling rightMouseDown.
+        // It intentionally does not use the automatic timer's pointerDown guard.
+        guard session.beginIfDue(at: now(), canStart: canPoopManually, manually: true) else { return false }
+        return playback.poop()
+    }
     func tick() {
         guard let view = petView else { return }
         let canStart = !playback.isEating && !playback.isPooping && !view.pointerDown && !view.fileDragActive

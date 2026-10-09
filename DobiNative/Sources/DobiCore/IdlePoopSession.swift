@@ -10,8 +10,8 @@ public struct IdlePoopSession {
         phase = hasPoop ? .visible : .waiting
     }
     public mutating func registerActivity(at now: TimeInterval) { lastActivity = now }
-    public mutating func beginIfDue(at now: TimeInterval, canStart: Bool) -> Bool {
-        guard phase == .waiting, canStart, now - lastActivity >= interval else { return false }
+    public mutating func beginIfDue(at now: TimeInterval, canStart: Bool, manually: Bool = false) -> Bool {
+        guard phase == .waiting, canStart, manually || now - lastActivity >= interval else { return false }
         phase = .animating
         return true
     }
