@@ -122,8 +122,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         interact.isEnabled = !playback.isEating && !playback.isPooping
         let poop = menu.addItem(withTitle: "拉便便", action: #selector(poopManually), keyEquivalent: "")
         poop.target = self
-        poop.isEnabled = idlePoop?.canPoopManually == true
-        poop.toolTip = idlePoop?.session.phase == .visible ? "先点击桌面的便便清理，再演示拉便便" : "立即演示拉便便，无需等待 5 分钟"
+        poop.isEnabled = idlePoop != nil
+        poop.toolTip = "可连续点击，每次都会新增一坨便便"
         let sizes = NSMenu()
         for (title, value) in [("小 · 220", 220), ("中 · 300", 300), ("大 · 380", 380)] {
             let item = sizes.addItem(withTitle: title, action: #selector(resizePet(_:)), keyEquivalent: "")

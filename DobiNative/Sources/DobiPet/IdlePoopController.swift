@@ -14,61 +14,56 @@ final class IdlePoopController {
     init(playback: Playback, view: PetView, store: PetStore,
          interval: TimeInterval = 300, now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) throws {
         self.playback = playback; self.petView = view; self.store = store; self.now = now
-        session = IdlePoopSession(now: now(), hasPoop: store.poopPosition != nil, interval: interval)
+        session = IdlePoopSession(now: now(), interval: interval)
         desktop = try PoopDesktop()
-        desktop.onClear = { [weak self] in self?.clear() }
+        desktop.onClear = { [weak self] id in self?.clear(id) }
         playback.onPoopFinished = { [weak self] in self?.animationFinished() }
         view.onActivity = { [weak self] in self?.registerActivity() }
     }
     func start() {
-        if let position = store.poopPosition {
-            desktop.show(at: position)
-            store.poopPosition = desktop.origin
-        }
+        for record in store.poops { desktop.show(record) }
+        persist()
         timer?.invalidate()
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
     func registerActivity() { session.registerActivity(at: now()) }
-    var canPoopManually: Bool {
-        session.phase == .waiting && !playback.isEating && !playback.isPooping
-    }
     @discardableResult
     func poopManually() -> Bool {
-        // A context-menu action runs while PetView is still handling rightMouseDown.
-        // It intentionally does not use the automatic timer's pointerDown guard.
-        guard session.beginIfDue(at: now(), canStart: canPoopManually, manually: true) else { return false }
-        return playback.poop()
+        registerActivity()
+        session.requestManual()
+        // Menu actions run while PetView is still handling rightMouseDown.
+        startNext(canStart: !playback.isEating && !playback.isPooping)
+        return true
+    }
+    private func startNext(canStart: Bool) {
+        if session.beginIfDue(at: now(), canStart: canStart) { playback.poop() }
     }
     func tick() {
         guard let view = petView else { return }
         let canStart = !playback.isEating && !playback.isPooping && !view.pointerDown && !view.fileDragActive
             && !PetView.externalFileDragInProgress
-        if session.beginIfDue(at: now(), canStart: canStart) { playback.poop() }
+        startNext(canStart: canStart)
     }
     private func animationFinished() {
-        guard session.phase == .animating, let petRect = petView?.window?.frame else { return }
-        guard desktop.showRandomly(avoiding: petRect) else {
-            session.clear(at: now())
-            return
-        }
+        guard session.phase == .animating else { return }
         session.completeAnimation()
-        store.poopPosition = desktop.origin
-        print("event=poop_created position=\(desktop.origin ?? .zero)")
+        if let petRect = petView?.window?.frame, let id = desktop.showRandomly(avoiding: petRect) {
+            persist()
+            print("event=poop_created id=\(id) count=\(desktop.records.count)")
+        }
+        // The timer starts queued demos after Playback has resumed ambient/eating.
     }
-    func clear() {
-        desktop.dismiss()
-        store.poopPosition = nil
-        session.clear(at: now())
-        print("event=poop_cleared")
+    func clear(_ id: UUID) {
+        desktop.remove(id)
+        persist()
+        print("event=poop_cleared id=\(id) count=\(desktop.records.count)")
     }
-    func screensChanged() {
-        desktop.keepOnScreen()
-        if desktop.origin != nil { store.poopPosition = desktop.origin }
-    }
+    private func persist() { store.poops = desktop.records }
+    func screensChanged() { desktop.keepOnScreen(); persist() }
     func stop() {
         timer?.invalidate(); timer = nil
-        desktop.dismiss()
+        desktop.dismissAll()
     }
 }

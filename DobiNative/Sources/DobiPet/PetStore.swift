@@ -1,6 +1,11 @@
 import AppKit
 import DobiCore
 
+struct PoopRecord: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var position: NSPoint
+}
+
 final class PetStore {
     private let defaults: UserDefaults
     private(set) var life: PetLife
@@ -33,18 +38,21 @@ final class PetStore {
         guard defaults.object(forKey: "positionX") != nil else { return nil }
         return NSPoint(x: defaults.double(forKey: "positionX"), y: defaults.double(forKey: "positionY"))
     }
-    var poopPosition: NSPoint? {
+    var poops: [PoopRecord] {
         get {
-            guard defaults.object(forKey: "poopX") != nil else { return nil }
+            if let data = defaults.data(forKey: "poops"), let records = try? JSONDecoder().decode([PoopRecord].self, from: data) {
+                return records.filter { $0.position.x.isFinite && $0.position.y.isFinite }
+            }
+            // Preserve the single poop saved by versions 1.3.0/1.3.1.
+            guard defaults.object(forKey: "poopX") != nil else { return [] }
             let point = NSPoint(x: defaults.double(forKey: "poopX"), y: defaults.double(forKey: "poopY"))
-            return point.x.isFinite && point.y.isFinite ? point : nil
+            let records = point.x.isFinite && point.y.isFinite ? [PoopRecord(position: point)] : []
+            self.poops = records
+            return records
         }
         set {
-            if let point = newValue {
-                defaults.set(point.x, forKey: "poopX"); defaults.set(point.y, forKey: "poopY")
-            } else {
-                defaults.removeObject(forKey: "poopX"); defaults.removeObject(forKey: "poopY")
-            }
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: "poops")
+            defaults.removeObject(forKey: "poopX"); defaults.removeObject(forKey: "poopY")
         }
     }
 }
