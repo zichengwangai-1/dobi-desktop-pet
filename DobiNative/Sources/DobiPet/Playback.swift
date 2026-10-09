@@ -21,7 +21,10 @@ final class Playback {
     private var displayedItem: ObjectIdentifier?
     private var hasReportedFailure = false
     private var feeding = FeedingSession()
+    private(set) var isPooping = false
+    private var mealAfterPooping = false
     var isEating: Bool { feeding.isEating }
+    var onPoopFinished: (() -> Void)?
     var onFailure: ((String) -> Void)?
 
     init(view: PetView, store: PetStore) {
@@ -34,7 +37,17 @@ final class Playback {
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
                                                              object: nil, queue: .main) { [weak self] note in
             guard let self, let item = note.object as? AVPlayerItem,
-                  self.actions.removeValue(forKey: ObjectIdentifier(item)) != nil else { return }
+                  let action = self.actions.removeValue(forKey: ObjectIdentifier(item)) else { return }
+            if self.isPooping && action == PetAction.pooping(for: self.stage) {
+                self.isPooping = false
+                self.onPoopFinished?()
+                print("event=pooping_finished")
+                if self.mealAfterPooping {
+                    self.mealAfterPooping = false
+                    self.feed()
+                } else { self.startAmbient() }
+                return
+            }
             if self.feeding.isEating {
                 if self.feeding.completeCycle() { self.enqueue(PetAction.eating(for: self.stage)) }
                 else { self.startAmbient(); print("event=feeding_finished") }
@@ -78,7 +91,7 @@ final class Playback {
         enqueue(PetAction.ambient(for: stage, excluding: previous))
     }
     func interact() {
-        guard !isEating else { return }
+        guard !isEating && !isPooping else { return }
         stage = store.stage()
         let action = PetAction.interaction(for: stage)
         player.pause(); player.removeAllItems(); actions.removeAll()
@@ -91,6 +104,11 @@ final class Playback {
     }
     func feed() {
         sound?.stop()
+        if isPooping {
+            mealAfterPooping = true
+            print("event=feeding_deferred_until_pooping_finishes")
+            return
+        }
         guard feeding.receiveFood() else {
             print("event=feeding_extended")
             return
@@ -101,6 +119,19 @@ final class Playback {
         for _ in 0..<3 { enqueue(PetAction.eating(for: stage)) }
         player.play()
         print("event=feeding_started stage=\(stage.rawValue)")
+    }
+    @discardableResult
+    func poop() -> Bool {
+        guard !isEating && !isPooping else { return false }
+        isPooping = true
+        stage = store.stage()
+        sound?.stop()
+        player.pause(); player.removeAllItems(); actions.removeAll()
+        enqueue(PetAction.pooping(for: stage))
+        for _ in 0..<2 { appendAmbient() }
+        player.play()
+        print("event=pooping_started stage=\(stage.rawValue)")
+        return true
     }
     private func render() {
         guard let view, let item = player.currentItem,

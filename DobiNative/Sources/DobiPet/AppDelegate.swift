@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: PetPanel!
     private var petView: PetView!
     private var playback: Playback!
+    private var idlePoop: IdlePoopController?
     private var statusItem: NSStatusItem!
     private var screenObserver: NSObjectProtocol?
     private let feedingQueue = DispatchQueue(label: "com.dobipet.file-feeding", qos: .userInitiated)
@@ -14,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let missing = PetAction.allCases.filter { !FileManager.default.fileExists(atPath: Assets.video($0).path) }
         guard missing.isEmpty else { showFailure("缺少视频素材：\(missing.map(\.rawValue).joined(separator: "、"))"); return }
+        guard FileManager.default.fileExists(atPath: Assets.poopImage.path) else {
+            showFailure("缺少透明便便图片"); return
+        }
         let size = store.size
         panel = PetPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
                          styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -41,10 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.toolTip = "杜宾 · 拖文件喂食（移入废纸篓），点击互动，右键关闭"
         playback = Playback(view: petView, store: store)
         playback.onFailure = { [weak self] message in self?.showFailure(message) }
+        do { idlePoop = try IdlePoopController(playback: playback, view: petView, store: store) }
+        catch { showFailure(error.localizedDescription); return }
         panel.orderFrontRegardless()
         playback.startAmbient()
+        idlePoop?.start()
         screenObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
-                                                                object: nil, queue: .main) { [weak self] _ in self?.keepOnScreen() }
+                                                                object: nil, queue: .main) { [weak self] _ in
+            self?.keepOnScreen(); self?.idlePoop?.screensChanged()
+        }
         print("event=launch stage=\(store.stage().rawValue) birthday=\(store.life.birthday.timeIntervalSince1970)")
     }
     private func placePet() {
@@ -52,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         else { centerPet() }
     }
     private func feedFiles(_ files: [URL]) {
+        idlePoop?.registerActivity()
         feedingQueue.async { [weak self] in
             let result = FileFeedingService().consume(files)
             DispatchQueue.main.async {
@@ -108,7 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         let interact = menu.addItem(withTitle: stage == .puppy ? "坐下" : "犬吠", action: #selector(interact), keyEquivalent: "")
         interact.target = self
-        interact.isEnabled = !playback.isEating
+        interact.isEnabled = !playback.isEating && !playback.isPooping
         let sizes = NSMenu()
         for (title, value) in [("小 · 220", 220), ("中 · 300", 300), ("大 · 380", 380)] {
             let item = sizes.addItem(withTitle: title, action: #selector(resizePet(_:)), keyEquivalent: "")
@@ -126,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         close.target = self
         return menu
     }
-    @objc private func interact() { playback.interact() }
+    @objc private func interact() { idlePoop?.registerActivity(); playback.interact() }
     @objc private func toggleSound() { store.soundEnabled.toggle() }
     @objc private func resizePet(_ sender: NSMenuItem) {
         let size = CGFloat(sender.tag)
@@ -147,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func applicationWillTerminate(_ notification: Notification) {
         if let panel { store.savePosition(panel.frame.origin) }
+        idlePoop?.stop()
         playback?.stop()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
     }

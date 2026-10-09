@@ -1,6 +1,7 @@
 """Verify every decoded frame has transparency, foreground, and actual motion."""
 import hashlib, json, pathlib, subprocess, sys
 import numpy as np
+from PIL import Image
 
 root = pathlib.Path(__file__).resolve().parents[1]
 results = []
@@ -28,5 +29,15 @@ for path in sorted((root/'Resources/Videos').glob('*.mov')):
     results.append(result)
     print(json.dumps(result), flush=True)
 assert {item['file'] for item in results} == {'puppy_walk.mov', 'puppy_spin.mov', 'puppy_sit.mov',
-                                           'adult_walk.mov', 'adult_bark.mov', 'puppy_eat.mov', 'adult_eat.mov'}, 'Seven clips are required'
+                                           'adult_walk.mov', 'adult_bark.mov', 'puppy_eat.mov', 'adult_eat.mov',
+                                           'puppy_poop.mov', 'adult_poop.mov'}, 'Nine clips are required'
+poop = np.array(Image.open(root/'Resources/Images/poop.png').convert('RGBA'))
+alpha = poop[:, :, 3]
+assert alpha.min() == 0 and alpha.max() >= 250, 'Poop PNG needs real alpha and solid foreground'
+assert all(alpha[y, x] == 0 for y, x in [(0, 0), (0, -1), (-1, 0), (-1, -1)]), 'Poop corners must be clear'
+assert float(np.mean(alpha == 0)) > 0.5, 'Poop background must be removed'
+result = dict(file='poop.png', alpha_min=int(alpha.min()), alpha_max=int(alpha.max()),
+              transparent_fraction=float(np.mean(alpha == 0)), passed=True)
+results.append(result)
+print(json.dumps(result), flush=True)
 (root/'docs/asset-validation.json').write_text(json.dumps(results, indent=2)+'\n')

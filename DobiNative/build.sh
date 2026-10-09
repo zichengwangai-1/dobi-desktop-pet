@@ -12,6 +12,7 @@ mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 cp .build/release/DobiPet "$APP_PATH/Contents/MacOS/DobiPet"
 cp -R Resources/Videos "$APP_PATH/Contents/Resources/"
 cp -R Resources/Sounds "$APP_PATH/Contents/Resources/"
+cp -R Resources/Images "$APP_PATH/Contents/Resources/"
 if [ -f Resources/Dobi.icns ]; then cp Resources/Dobi.icns "$APP_PATH/Contents/Resources/"; fi
 cp Info.plist "$APP_PATH/Contents/Info.plist"
 codesign --force --sign - "$APP_PATH"

@@ -8,6 +8,7 @@ final class PetPanel: NSPanel {
 
 final class PetView: NSView {
     var onInteract: (() -> Void)?
+    var onActivity: (() -> Void)?
     var onDragEnd: (() -> Void)?
     var onFilesDropped: (([URL]) -> Void)?
     var menuProvider: (() -> NSMenu)?
@@ -26,7 +27,7 @@ final class PetView: NSView {
     }
     override var isOpaque: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func accessibilityPerformPress() -> Bool { onInteract?(); return true }
+    override func accessibilityPerformPress() -> Bool { onActivity?(); onInteract?(); return true }
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -42,12 +43,14 @@ final class PetView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func mouseDown(with event: NSEvent) {
+        onActivity?()
         pointerDown = true
         anchor = window?.convertPoint(toScreen: event.locationInWindow) ?? event.locationInWindow
         initialOrigin = window?.frame.origin ?? .zero
         gesture.begin(at: anchor)
     }
     override func mouseDragged(with event: NSEvent) {
+        onActivity?()
         let point = window?.convertPoint(toScreen: event.locationInWindow) ?? event.locationInWindow
         if gesture.move(to: point) {
             window?.setFrameOrigin(NSPoint(x: initialOrigin.x + point.x - anchor.x,
@@ -59,6 +62,7 @@ final class PetView: NSView {
         if gesture.shouldInteract { onInteract?() } else { onDragEnd?() }
     }
     override func rightMouseDown(with event: NSEvent) {
+        onActivity?()
         pointerDown = true
         defer { pointerDown = false }
         if let menu = menuProvider?() { NSMenu.popUpContextMenu(menu, with: event, for: self) }
@@ -79,6 +83,7 @@ final class PetView: NSView {
         defer { fileDragActive = false }
         let files = Self.fileURLs(from: sender.draggingPasteboard)
         guard !files.isEmpty, let onFilesDropped else { return false }
+        onActivity?()
         onFilesDropped(files)
         return true
     }

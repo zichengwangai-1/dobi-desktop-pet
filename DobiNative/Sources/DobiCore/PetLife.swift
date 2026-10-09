@@ -22,6 +22,10 @@ public enum PetAction: String, CaseIterable {
     case puppyWalk = "puppy_walk", puppySpin = "puppy_spin", puppySit = "puppy_sit"
     case adultWalk = "adult_walk", adultBark = "adult_bark"
     case puppyEat = "puppy_eat", adultEat = "adult_eat"
+    case puppyPoop = "puppy_poop", adultPoop = "adult_poop"
+    public static func pooping(for stage: PetStage) -> PetAction {
+        stage == .puppy ? .puppyPoop : .adultPoop
+    }
     public static func eating(for stage: PetStage) -> PetAction {
         stage == .puppy ? .puppyEat : .adultEat
     }

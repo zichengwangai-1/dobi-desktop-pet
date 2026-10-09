@@ -33,10 +33,25 @@ final class PetStore {
         guard defaults.object(forKey: "positionX") != nil else { return nil }
         return NSPoint(x: defaults.double(forKey: "positionX"), y: defaults.double(forKey: "positionY"))
     }
+    var poopPosition: NSPoint? {
+        get {
+            guard defaults.object(forKey: "poopX") != nil else { return nil }
+            let point = NSPoint(x: defaults.double(forKey: "poopX"), y: defaults.double(forKey: "poopY"))
+            return point.x.isFinite && point.y.isFinite ? point : nil
+        }
+        set {
+            if let point = newValue {
+                defaults.set(point.x, forKey: "poopX"); defaults.set(point.y, forKey: "poopY")
+            } else {
+                defaults.removeObject(forKey: "poopX"); defaults.removeObject(forKey: "poopY")
+            }
+        }
+    }
 }
 
 enum Assets {
     static var root: URL { Bundle.main.resourceURL! }
+    static var poopImage: URL { root.appendingPathComponent("Images/poop.png") }
     static func video(_ action: PetAction) -> URL {
         root.appendingPathComponent("Videos/\(action.rawValue).mov")
     }

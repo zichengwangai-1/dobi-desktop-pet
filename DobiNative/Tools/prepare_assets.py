@@ -12,6 +12,8 @@ CLIPS = {
     'adult_bark': '成年期：犬吠.mov',
     'puppy_eat': '幼年期：吃饭.mp4',
     'adult_eat': '成年期：吃饭.mov',
+    'puppy_poop': '幼年期：拉屎1.mov',
+    'adult_poop': '成年期：拉屎1.mov',
 }
 parser = argparse.ArgumentParser()
 parser.add_argument('--only', nargs='+', choices=list(CLIPS))
@@ -29,7 +31,9 @@ for name, source in CLIPS.items():
     # Loop only the head-down eating section, not the stand-up intro/outro.
     eating_sections = {'puppy_eat': ('0.9', '1.9'), 'adult_eat': ('1.1', '2.3')}
     trim = ['-ss', eating_sections[name][0], '-t', eating_sections[name][1]] if name in eating_sections else []
-    decode = subprocess.Popen([ffmpeg, '-v','error',*trim,'-i',str(SOURCE/source),'-vf','fps=30,scale=540:540',
+    # The new adult clip is landscape: crop the empty black side margins rather than squash the dog.
+    filters = 'fps=30,' + ('crop=1080:1080,' if name == 'adult_poop' else '') + 'scale=540:540'
+    decode = subprocess.Popen([ffmpeg, '-v','error',*trim,'-i',str(SOURCE/source),'-vf',filters,
                                '-f','rawvideo','-pix_fmt','rgb24','-an','pipe:1'], stdout=subprocess.PIPE)
     segmentation_options = ['--preserve-color-details'] if name in eating_sections else []
     cutout = subprocess.Popen([str(tool), *segmentation_options], stdin=decode.stdout, stdout=subprocess.PIPE)
