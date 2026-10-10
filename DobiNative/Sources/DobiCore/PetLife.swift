@@ -5,14 +5,16 @@ public enum PetStage: String, Codable { case puppy, adult }
 public struct PetLife: Codable {
     public let birthday: Date
     public private(set) var hasGrown: Bool
+    public private(set) var selectedStage: PetStage?
     public init(birthday: Date, hasGrown: Bool = false) {
         self.birthday = birthday
         self.hasGrown = hasGrown
     }
     public mutating func stage(at date: Date) -> PetStage {
         if date.timeIntervalSince(birthday) >= 259_200 { hasGrown = true }
-        return hasGrown ? .adult : .puppy
+        return selectedStage ?? (hasGrown ? .adult : .puppy)
     }
+    public mutating func selectStage(_ stage: PetStage?) { selectedStage = stage }
     public func remaining(at date: Date) -> TimeInterval {
         hasGrown ? 0 : max(0, 259_200 - date.timeIntervalSince(birthday))
     }

@@ -30,6 +30,11 @@ final class PetStore {
         if wasGrown != life.hasGrown { persist() }
         return stage
     }
+    func selectStage(_ stage: PetStage?) {
+        life.selectStage(stage)
+        _ = life.stage(at: Date())
+        persist()
+    }
     private func persist() { defaults.set(try? JSONEncoder().encode(life), forKey: "life") }
     func savePosition(_ origin: NSPoint) {
         defaults.set(origin.x, forKey: "positionX"); defaults.set(origin.y, forKey: "positionY")

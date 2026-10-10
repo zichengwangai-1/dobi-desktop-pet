@@ -24,6 +24,7 @@ final class Playback {
     private(set) var isPooping = false
     private var mealAfterPooping = false
     var isEating: Bool { feeding.isEating }
+    var currentAction: PetAction? { player.currentItem.flatMap { actions[ObjectIdentifier($0)] } }
     var onPoopFinished: (() -> Void)?
     var onFailure: ((String) -> Void)?
 
@@ -74,6 +75,24 @@ final class Playback {
         stage = store.stage()
         for _ in 0..<3 { appendAmbient() }
         player.play()
+    }
+    func refreshStage() {
+        let newStage = store.stage()
+        guard newStage != stage else { return }
+        stage = newStage
+        sound?.stop()
+        player.pause(); player.removeAllItems(); actions.removeAll()
+        // Retain the active session and its pending work when changing appearance.
+        if isPooping {
+            enqueue(PetAction.pooping(for: stage))
+            for _ in 0..<2 { appendAmbient() }
+        } else if isEating {
+            for _ in 0..<3 { enqueue(PetAction.eating(for: stage)) }
+        } else {
+            for _ in 0..<3 { appendAmbient() }
+        }
+        player.play()
+        print("event=stage_changed stage=\(stage.rawValue)")
     }
     private func enqueue(_ action: PetAction) {
         guard let asset = assets[action] else { return }

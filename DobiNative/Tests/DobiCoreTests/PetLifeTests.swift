@@ -3,6 +3,27 @@ import CoreGraphics
 @testable import DobiCore
 
 final class PetLifeTests: XCTestCase {
+    func testManualStagePersistsAndCanReturnToAutomaticGrowth() throws {
+        let birthday = Date(timeIntervalSince1970: 1000)
+        var life = PetLife(birthday: birthday)
+        life.selectStage(.adult)
+        XCTAssertEqual(life.stage(at: birthday), .adult)
+        life.selectStage(nil)
+        XCTAssertEqual(life.stage(at: birthday), .puppy, "Manual adulthood must not mark natural growth complete")
+        XCTAssertEqual(life.stage(at: birthday.addingTimeInterval(259_200)), .adult)
+        life.selectStage(.puppy)
+        var restored = try JSONDecoder().decode(PetLife.self, from: JSONEncoder().encode(life))
+        XCTAssertEqual(restored.selectedStage, .puppy)
+        XCTAssertEqual(restored.stage(at: birthday.addingTimeInterval(600_000)), .puppy)
+        restored.selectStage(nil)
+        XCTAssertEqual(restored.stage(at: birthday), .adult, "Automatic mode must retain completed natural growth")
+    }
+    func testOldSavedLifeDefaultsToAutomaticGrowth() throws {
+        let oldSave = Data(#"{"birthday":0,"hasGrown":false}"#.utf8)
+        var restored = try JSONDecoder().decode(PetLife.self, from: oldSave)
+        XCTAssertNil(restored.selectedStage)
+        XCTAssertEqual(restored.stage(at: restored.birthday), .puppy)
+    }
     // Catch early growth at a calendar-day boundary and lost growth on restart.
     func testGrowthAtExactly72HoursAndPersistsAcrossRestart() throws {
         let birthday = Date(timeIntervalSince1970: 1000)

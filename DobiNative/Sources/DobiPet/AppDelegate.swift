@@ -112,11 +112,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if fedFileCount > 0 {
             menu.addItem(withTitle: "已吃掉 \(fedFileCount) 个文件 · 可在废纸篓找回", action: nil, keyEquivalent: "").isEnabled = false
         }
-        if stage == .puppy {
+        if stage == .puppy && store.life.selectedStage == nil {
             let hours = Int(ceil(store.life.remaining(at: Date()) / 3600))
             menu.addItem(withTitle: "再陪伴 \(hours) 小时，长大成为成年犬", action: nil, keyEquivalent: "").isEnabled = false
         }
         menu.addItem(.separator())
+        let stages = NSMenu()
+        stages.autoenablesItems = false
+        for (title, value, selection) in [("幼年期", 1, PetStage.puppy), ("成年期", 2, PetStage.adult)] {
+            let item = stages.addItem(withTitle: title, action: #selector(selectStage(_:)), keyEquivalent: "")
+            item.tag = value; item.target = self
+            item.state = store.life.selectedStage == selection ? .on : .off
+        }
+        stages.addItem(.separator())
+        let automatic = stages.addItem(withTitle: "自动成长（3 天）", action: #selector(selectStage(_:)), keyEquivalent: "")
+        automatic.tag = 0; automatic.target = self
+        automatic.state = store.life.selectedStage == nil ? .on : .off
+        let stageMenu = menu.addItem(withTitle: "成长阶段", action: nil, keyEquivalent: "")
+        stageMenu.submenu = stages
         let interact = menu.addItem(withTitle: stage == .puppy ? "坐下" : "犬吠", action: #selector(interact), keyEquivalent: "")
         interact.target = self
         interact.isEnabled = !playback.isEating && !playback.isPooping
@@ -143,6 +156,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc private func interact() { idlePoop?.registerActivity(); playback.interact() }
     @objc private func poopManually() { idlePoop?.poopManually() }
+    @objc private func selectStage(_ sender: NSMenuItem) {
+        idlePoop?.registerActivity()
+        store.selectStage(sender.tag == 1 ? .puppy : sender.tag == 2 ? .adult : nil)
+        playback.refreshStage()
+    }
     @objc private func toggleSound() { store.soundEnabled.toggle() }
     @objc private func resizePet(_ sender: NSMenuItem) {
         let size = CGFloat(sender.tag)
