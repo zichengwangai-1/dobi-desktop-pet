@@ -4,6 +4,7 @@ macOS 原生桌宠：透明动态视频、拖文件喂狗（移入废纸篓）�
 
 - **运行**：双击 `启动杜宾.command`。若 `杜宾.app` 尚未生成，脚本会先本地构建。
 - **源码与说明**：[DobiNative/README.md](DobiNative/README.md)。
+- **iPhone 桌面交互小组件**：[DobiIOS/README.md](DobiIOS/README.md)，支持小号／中号、摸摸、喂食、铲便便和成长阶段配置，需要 iOS 17+。
 - **构建**：执行 `DobiNative/build.sh`，需要 macOS 14+ 和 Xcode Command Line Tools。
 - **素材**：幼年及成年共九段动作、进食与拉屎视频，对应的透明 ProRes 4444 视频，以及透明便便 PNG 均纳入版本管理。
 

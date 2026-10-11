@@ -3,6 +3,7 @@
 !/.gitignore
 !/README.md
 !/DobiNative/
+!/DobiIOS/
 !/启动杜宾.command
 !/杜宾：小狗动作画面/
 
@@ -13,9 +14,14 @@
 # Build output, IDE state, and local filesystem metadata.
 **/.build/
 **/.swiftpm/
+**/DerivedData/
+**/build/
+**/xcuserdata/
 **/.DS_Store
 **/*.xcuserstate
 **/core
 **/core.*
+!/DobiIOS/Shared/Core/
+!/DobiIOS/Shared/Core/*.swift
 **/__pycache__/
 **/*.pyc
