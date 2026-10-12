@@ -96,7 +96,7 @@ struct VerifyIdlePoop {
                     precondition(!poopPanel.isOpaque && !poopPanel.hasShadow && !poopView.isOpaque)
                     precondition(NSScreen.screens.contains { $0.visibleFrame.contains(poopPanel.frame) })
                     precondition(!poopView.containsOpaquePoint(NSPoint(x: 1, y: 1)))
-                    precondition(poopView.containsOpaquePoint(NSPoint(x: 64, y: poopView.bounds.midY)))
+                    precondition(poopView.containsOpaquePoint(NSPoint(x: poopView.poopRect.midX, y: poopView.poopRect.midY)))
                 }
                 func click(_ id: UUID, at point: NSPoint) {
                     let poopPanel = idle.desktop.panel(for: id)!, poopView = idle.desktop.view(for: id)!
@@ -112,7 +112,7 @@ struct VerifyIdlePoop {
                 click(removed, at: NSPoint(x: 1, y: 1))
                 precondition(idle.desktop.records.count == 5, "Transparent pixels do not clear poop")
                 let target = idle.desktop.view(for: removed)!
-                click(removed, at: NSPoint(x: target.bounds.midX, y: target.bounds.midY))
+                click(removed, at: NSPoint(x: target.poopRect.midX, y: target.poopRect.midY))
                 precondition(idle.desktop.records.count == 4 && idle.desktop.panel(for: removed) == nil)
                 precondition(idle.desktop.records == records.filter { $0.id != removed }, "Only the clicked poop disappears")
                 let saved = store.poops

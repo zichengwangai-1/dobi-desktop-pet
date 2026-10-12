@@ -1,4 +1,5 @@
 import AppKit
+import DobiCore
 
 // All poop windows share one decoded image and alpha mask, even as piles accumulate.
 final class PoopSprite {
@@ -17,45 +18,27 @@ final class PoopSprite {
 }
 
 // The image keeps its real alpha, and only visible pixels receive clicks.
-final class PoopView: NSView {
+final class PoopView: FlowerCanvas {
     var onClear: (() -> Void)?
-    private let sprite: PoopSprite
+    var onEdit: (() -> Void)?
     private var pointerDown = false
-    override var isOpaque: Bool { false }
 
-    init(sprite: PoopSprite, frame: NSRect) {
-        self.sprite = sprite
-        super.init(frame: frame)
-        wantsLayer = true
-        layer?.isOpaque = false
-        layer?.backgroundColor = NSColor.clear.cgColor
-        layer?.contents = sprite.image
-        layer?.contentsGravity = .resizeAspect
-        toolTip = "点击铲掉这坨便便"
+    override init(sprite: PoopSprite, flowers: FlowerSprites, frame: NSRect) {
+        super.init(sprite: sprite, flowers: flowers, frame: frame)
+        toolTip = "单击铲掉 · 右键屎上雕花"
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel("便便，点击铲掉这一坨")
+        setAccessibilityLabel("便便，单击铲掉，右键屎上雕花")
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func accessibilityPerformPress() -> Bool { onClear?(); return true }
-    func containsOpaquePoint(_ point: NSPoint) -> Bool {
-        let image = sprite.image
-        let scale = min(bounds.width / CGFloat(image.width), bounds.height / CGFloat(image.height))
-        guard scale > 0 else { return false }
-        let left = (bounds.width - CGFloat(image.width) * scale) / 2
-        let bottom = (bounds.height - CGFloat(image.height) * scale) / 2
-        let x = Int(floor((point.x - left) / scale))
-        let y = image.height - 1 - Int(floor((point.y - bottom) / scale))
-        guard x >= 0 && y >= 0 && x < image.width && y < image.height else { return false }
-        return sprite.alpha[y * image.width + x] > 24
-    }
     func updateMouseRouting(at mouseLocation: NSPoint) {
         guard !pointerDown, let window else { return }
         let point = convert(window.convertPoint(fromScreen: mouseLocation), from: nil)
         window.ignoresMouseEvents = !containsOpaquePoint(point)
     }
     override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control) { rightMouseDown(with: event); return }
         pointerDown = containsOpaquePoint(convert(event.locationInWindow, from: nil))
     }
     override func mouseUp(with event: NSEvent) {
@@ -63,22 +46,43 @@ final class PoopView: NSView {
         pointerDown = false
         if shouldClear { onClear?() }
     }
+    func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        let edit = menu.addItem(withTitle: "屎上雕花", action: #selector(editFlowers), keyEquivalent: "")
+        edit.target = self
+        menu.addItem(.separator())
+        let clear = menu.addItem(withTitle: "铲掉这坨", action: #selector(clearPoop), keyEquivalent: "")
+        clear.target = self
+        return menu
+    }
+    override func rightMouseDown(with event: NSEvent) {
+        guard containsOpaquePoint(convert(event.locationInWindow, from: nil)) else { return }
+        pointerDown = true
+        NSMenu.popUpContextMenu(makeContextMenu(), with: event, for: self)
+        pointerDown = false
+    }
+    @objc private func editFlowers() { onEdit?() }
+    @objc private func clearPoop() { onClear?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
 final class PoopDesktop {
     private struct Entry { let panel: PetPanel; let view: PoopView }
     private let sprite: PoopSprite
+    private let flowers: FlowerSprites
+    private(set) var editor: FlowerEditor?
+    private var editingID: UUID?
     private var entries: [UUID: Entry] = [:]
     private var timer: Timer?
     var onClear: ((UUID) -> Void)?
+    var onChange: (() -> Void)?
     var records: [PoopRecord] {
-        entries.map { PoopRecord(id: $0.key, position: $0.value.panel.frame.origin) }
+        entries.map { PoopRecord(id: $0.key, position: $0.value.panel.frame.origin, garden: $0.value.view.garden) }
             .sorted { $0.id.uuidString < $1.id.uuidString }
     }
     func panel(for id: UUID) -> PetPanel? { entries[id]?.panel }
     func view(for id: UUID) -> PoopView? { entries[id]?.view }
-    private var size: NSSize { NSSize(width: 128, height: 128 * CGFloat(sprite.image.height) / CGFloat(sprite.image.width)) }
+    private var size: NSSize { NSSize(width: 200, height: 170) }
 
     init(imageURL: URL = Assets.poopImage) throws {
         guard let source = NSImage(contentsOf: imageURL),
@@ -87,6 +91,11 @@ final class PoopDesktop {
                           userInfo: [NSLocalizedDescriptionKey: "无法读取透明便便图片"])
         }
         sprite = PoopSprite(image: cg)
+        guard sprite.alpha.min() == 0 else {
+            throw NSError(domain: "DobiAssets", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: "便便素材缺少透明背景"])
+        }
+        flowers = try FlowerSprites()
     }
     @discardableResult
     func showRandomly(avoiding petRect: NSRect) -> UUID? {
@@ -114,8 +123,10 @@ final class PoopDesktop {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
-        let view = PoopView(sprite: sprite, frame: NSRect(origin: .zero, size: size))
+        let view = PoopView(sprite: sprite, flowers: flowers, frame: NSRect(origin: .zero, size: size))
+        view.updateGarden(record.garden)
         view.onClear = { [weak self] in self?.onClear?(record.id) }
+        view.onEdit = { [weak self] in self?.openEditor(for: record.id) }
         panel.contentView = view
         entries[record.id] = Entry(panel: panel, view: view)
         keepOnScreen(panel)
@@ -140,11 +151,31 @@ final class PoopDesktop {
         panel.setFrameOrigin(NSPoint(x: max(area.minX, min(panel.frame.minX, area.maxX - size.width)),
                                      y: max(area.minY, min(panel.frame.minY, area.maxY - size.height))))
     }
+    func openEditor(for id: UUID) {
+        guard let entry = entries[id] else { return }
+        if editingID == id, let editor { editor.present(); return }
+        editor?.close()
+        let editor = FlowerEditor(sprite: sprite, flowers: flowers, garden: entry.view.garden)
+        self.editor = editor; editingID = id
+        editor.onChange = { [weak self] garden in
+            guard let self, let entry = self.entries[id] else { return }
+            entry.view.updateGarden(garden)
+            entry.view.updateMouseRouting(at: NSEvent.mouseLocation)
+            self.onChange?()
+        }
+        editor.onClose = { [weak self] in
+            guard let self, self.editingID == id else { return }
+            self.editingID = nil; self.editor = nil
+        }
+        editor.present()
+    }
     func remove(_ id: UUID) {
+        if editingID == id { editor?.close() }
         entries.removeValue(forKey: id)?.panel.close()
         if entries.isEmpty { timer?.invalidate(); timer = nil }
     }
     func dismissAll() {
+        editor?.close()
         timer?.invalidate(); timer = nil
         for entry in entries.values { entry.panel.close() }
         entries.removeAll()

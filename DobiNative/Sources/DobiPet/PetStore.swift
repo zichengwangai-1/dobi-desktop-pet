@@ -4,6 +4,18 @@ import DobiCore
 struct PoopRecord: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var position: NSPoint
+    var garden = FlowerGarden()
+
+    init(id: UUID = UUID(), position: NSPoint, garden: FlowerGarden = FlowerGarden()) {
+        self.id = id; self.position = position; self.garden = garden
+    }
+    private enum CodingKeys: String, CodingKey { case id, position, garden }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        position = try values.decode(NSPoint.self, forKey: .position)
+        garden = try values.decodeIfPresent(FlowerGarden.self, forKey: .garden) ?? FlowerGarden()
+    }
 }
 
 final class PetStore {

@@ -17,6 +17,7 @@ final class IdlePoopController {
         session = IdlePoopSession(now: now(), interval: interval)
         desktop = try PoopDesktop()
         desktop.onClear = { [weak self] id in self?.clear(id) }
+        desktop.onChange = { [weak self] in self?.persist() }
         playback.onPoopFinished = { [weak self] in self?.animationFinished() }
         view.onActivity = { [weak self] in self?.registerActivity() }
     }
